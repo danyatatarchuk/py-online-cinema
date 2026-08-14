@@ -10,3 +10,14 @@ class RegisterResponse(BaseModel):
     id: int
     email: EmailStr
     is_active: bool
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class LoginResponse(BaseModel):
+    id: int
+    email: EmailStr
+    is_active: bool
