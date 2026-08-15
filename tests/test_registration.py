@@ -142,3 +142,122 @@ async def test_password_is_hashed(setup_database):
         "password123",
         user.hashed_password,
     )
+
+
+@pytest.mark.asyncio
+async def test_login_user(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, 1)
+            user.is_active = True
+            await db.commit()
+
+        response = await client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == 1
+    assert data["email"] == "test@example.com"
+    assert data["is_active"] is True
+
+
+@pytest.mark.asyncio
+async def test_login_invalid_password(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, 1)
+            user.is_active = True
+            await db.commit()
+
+        response = await client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "wrongpassword",
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
+
+
+@pytest.mark.asyncio
+async def test_login_nonexistent_user(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/auth/login",
+            json={
+                "email": "unknown@example.com",
+                "password": "password123",
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
+
+
+@pytest.mark.asyncio
+async def test_login_inactive_user(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        response = await client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "User account is inactive"
