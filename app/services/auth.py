@@ -8,6 +8,10 @@ from pwdlib import PasswordHash
 password_hash = PasswordHash.recommended()
 
 
+def verify_password(password: str, hashed_password: str) -> bool:
+    return password_hash.verify(password, hashed_password)
+
+
 async def register_user(
     data: RegisterRequest,
     db: AsyncSession,
