@@ -12,6 +12,25 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
 
 
+async def authenticate_user(
+    email: str,
+    password: str,
+    db: AsyncSession,
+) -> User | None:
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        return None
+
+    if not verify_password(password, user.hashed_password):
+        return None
+
+    return user
+
+
 async def register_user(
     data: RegisterRequest,
     db: AsyncSession,
