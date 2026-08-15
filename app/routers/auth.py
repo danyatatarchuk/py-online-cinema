@@ -4,8 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user_group import UserGroup
-from app.schemas.auth import RegisterRequest, RegisterResponse
-from app.services.auth import register_user
+from app.schemas.auth import (
+    LoginRequest,
+    LoginResponse,
+    RegisterRequest,
+    RegisterResponse,
+)
+from app.services.auth import authenticate_user, register_user
+
 
 router = APIRouter(
     prefix="/auth",
@@ -48,6 +54,42 @@ async def register(
         ) from exc
 
     return RegisterResponse(
+        id=user.id,
+        email=user.email,
+        is_active=user.is_active,
+    )
+
+
+@router.post(
+    "/login",
+    response_model=LoginResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Login user",
+    description="Authenticates a user by email and password.",
+)
+async def login(
+    data: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await authenticate_user(
+        email=data.email,
+        password=data.password,
+        db=db,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive",
+        )
+
+    return LoginResponse(
         id=user.id,
         email=user.email,
         is_active=user.is_active,
