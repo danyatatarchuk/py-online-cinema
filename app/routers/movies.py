@@ -16,15 +16,22 @@ router = APIRouter(
 @router.get(
     "",
     response_model=list[MovieResponse],
-    summary="Get all movies",
-    description="Returns a list of all movies.",
+    summary="Get movies",
+    description="Returns a paginated list of movies.",
 )
 async def get_movies(
+    page: int = 1,
+    per_page: int = 10,
     db: AsyncSession = Depends(get_db),
 ):
+    offset = (page - 1) * per_page
+
     result = await db.execute(
         select(Movie)
+        .offset(offset)
+        .limit(per_page)
     )
+
     movies = result.scalars().all()
 
     return movies
