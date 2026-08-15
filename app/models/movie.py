@@ -33,6 +33,14 @@ movie_stars = Table(
 )
 
 
+movie_directors = Table(
+    "movie_directors",
+    Base.metadata,
+    Column("movie_id", ForeignKey("movies.id"), primary_key=True),
+    Column("director_id", ForeignKey("directors.id"), primary_key=True),
+)
+
+
 class Movie(Base):
     __tablename__ = "movies"
 
