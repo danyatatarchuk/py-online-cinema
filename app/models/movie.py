@@ -1,4 +1,4 @@
-import uuid
+import uuid as uuid_module
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -49,23 +49,58 @@ class Movie(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uuid: Mapped[uuid.UUID] = mapped_column(
-        default=uuid.uuid4,
+
+    uuid: Mapped[uuid_module.UUID] = mapped_column(
+        default=uuid_module.uuid4,
         unique=True,
         nullable=False,
     )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    year: Mapped[int] = mapped_column(Integer, nullable=False)
-    time: Mapped[int] = mapped_column(Integer, nullable=False)
-    imdb: Mapped[float] = mapped_column(Float, nullable=False)
-    votes: Mapped[int] = mapped_column(Integer, nullable=False)
-    meta_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    gross: Mapped[float | None] = mapped_column(Float, nullable=True)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    year: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    time: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    imdb: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+    )
+
+    votes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    meta_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    gross: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
     price: Mapped[Decimal] = mapped_column(
         DECIMAL(10, 2),
         nullable=False,
     )
+
     certification_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("certifications.id"),
