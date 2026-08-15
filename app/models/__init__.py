@@ -1,2 +1,7 @@
+from app.models.certification import Certification
+from app.models.director import Director
+from app.models.genre import Genre
+from app.models.movie import Movie
+from app.models.star import Star
 from app.models.user import User
 from app.models.user_group import UserGroup
