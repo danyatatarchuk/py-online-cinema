@@ -1,9 +1,14 @@
+from datetime import datetime, timedelta
+from uuid import uuid4
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.activation_token import ActivationToken
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
 from pwdlib import PasswordHash
+
 
 password_hash = PasswordHash.recommended()
 
@@ -52,6 +57,16 @@ async def register_user(
     )
 
     db.add(user)
+    await db.flush()
+
+    activation_token = ActivationToken(
+        user_id=user.id,
+        token=str(uuid4()),
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    )
+
+    db.add(activation_token)
+
     await db.commit()
     await db.refresh(user)
 
