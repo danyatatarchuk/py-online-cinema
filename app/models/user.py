@@ -59,4 +59,5 @@ class User(Base):
         back_populates="user",
         uselist=False,
         cascade="all, delete-orphan",
+        lazy="selectin",
     )

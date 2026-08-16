@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+from pwdlib import PasswordHash
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.activation_token import ActivationToken
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
-from pwdlib import PasswordHash
 
 
 password_hash = PasswordHash.recommended()
@@ -67,6 +67,44 @@ async def register_user(
 
     db.add(activation_token)
 
+    await db.commit()
+    await db.refresh(user)
+
+    return user
+
+
+async def activate_user(
+    token: str,
+    db: AsyncSession,
+) -> User:
+    result = await db.execute(
+        select(ActivationToken).where(
+            ActivationToken.token == token
+        )
+    )
+    activation_token = result.scalar_one_or_none()
+
+    if activation_token is None:
+        raise ValueError("Invalid activation token")
+
+    if activation_token.expires_at < datetime.utcnow():
+        await db.delete(activation_token)
+        await db.commit()
+        raise ValueError("Activation token has expired")
+
+    result = await db.execute(
+        select(User).where(
+            User.id == activation_token.user_id
+        )
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise ValueError("User not found")
+
+    user.is_active = True
+
+    await db.delete(activation_token)
     await db.commit()
     await db.refresh(user)
 

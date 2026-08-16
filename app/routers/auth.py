@@ -10,7 +10,11 @@ from app.schemas.auth import (
     RegisterRequest,
     RegisterResponse,
 )
-from app.services.auth import authenticate_user, register_user
+from app.services.auth import (
+    activate_user,
+    authenticate_user,
+    register_user,
+)
 
 
 router = APIRouter(
@@ -94,3 +98,29 @@ async def login(
         email=user.email,
         is_active=user.is_active,
     )
+
+
+@router.post(
+    "/activate/{token}",
+    summary="Activate user account",
+    description="Activates a user account using a valid activation token.",
+)
+async def activate(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        user = await activate_user(
+            token=token,
+            db=db,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return {
+        "message": "User account activated successfully",
+        "user_id": user.id,
+    }

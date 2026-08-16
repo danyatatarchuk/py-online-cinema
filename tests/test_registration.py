@@ -261,3 +261,97 @@ async def test_login_inactive_user(setup_database):
 
     assert response.status_code == 403
     assert response.json()["detail"] == "User account is inactive"
+
+
+@pytest.mark.asyncio
+async def test_activate_user(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        assert response.status_code == 201
+
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, 1)
+            token = user.activation_token.token
+
+        response = await client.post(
+            f"/auth/activate/{token}",
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["message"] == "User account activated successfully"
+    assert data["user_id"] == 1
+
+    async with AsyncSessionLocal() as db:
+        user = await db.get(User, 1)
+
+    assert user.is_active is True
+    assert user.activation_token is None
+
+
+@pytest.mark.asyncio
+async def test_activate_user_invalid_token(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/auth/activate/invalid-token",
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid activation token"
+
+
+@pytest.mark.asyncio
+async def test_activate_user_expired_token(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, 1)
+            user.activation_token.expires_at = (
+                user.activation_token.expires_at.replace(year=2020)
+            )
+            token = user.activation_token.token
+            await db.commit()
+
+        response = await client.post(
+            f"/auth/activate/{token}",
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Activation token has expired"
+
+    async with AsyncSessionLocal() as db:
+        user = await db.get(User, 1)
+
+    assert user.is_active is False
+    assert user.activation_token is None
