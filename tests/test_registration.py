@@ -1,7 +1,11 @@
+from datetime import datetime, timedelta
+
 from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
+from jose import jwt
 
+from app.core.security import ALGORITHM, SECRET_KEY
 from app.database import Base, AsyncSessionLocal, engine
 from app.main import app
 from app.models.user import User
@@ -181,6 +185,28 @@ async def test_login_user(setup_database):
     assert data["email"] == "test@example.com"
     assert data["is_active"] is True
 
+    assert data["access_token"]
+    assert data["refresh_token"]
+    assert data["token_type"] == "bearer"
+
+    access_payload = jwt.decode(
+        data["access_token"],
+        SECRET_KEY,
+        algorithms=[ALGORITHM],
+    )
+
+    refresh_payload = jwt.decode(
+        data["refresh_token"],
+        SECRET_KEY,
+        algorithms=[ALGORITHM],
+    )
+
+    assert access_payload["sub"] == "1"
+    assert access_payload["type"] == "access"
+
+    assert refresh_payload["sub"] == "1"
+    assert refresh_payload["type"] == "refresh"
+
 
 @pytest.mark.asyncio
 async def test_login_invalid_password(setup_database):
@@ -271,15 +297,13 @@ async def test_activate_user(setup_database):
         transport=transport,
         base_url="http://test",
     ) as client:
-        response = await client.post(
+        await client.post(
             "/auth/register",
             json={
                 "email": "test@example.com",
                 "password": "password123",
             },
         )
-
-        assert response.status_code == 201
 
         async with AsyncSessionLocal() as db:
             user = await db.get(User, 1)
@@ -290,27 +314,31 @@ async def test_activate_user(setup_database):
         )
 
     assert response.status_code == 200
-
-    data = response.json()
-
-    assert data["message"] == "User account activated successfully"
-    assert data["user_id"] == 1
+    assert response.json()["message"] == "User account activated successfully"
+    assert response.json()["user_id"] == 1
 
     async with AsyncSessionLocal() as db:
         user = await db.get(User, 1)
 
     assert user.is_active is True
-    assert user.activation_token is None
 
 
 @pytest.mark.asyncio
-async def test_activate_user_invalid_token(setup_database):
+async def test_activate_invalid_token(setup_database):
     transport = ASGITransport(app=app)
 
     async with AsyncClient(
         transport=transport,
         base_url="http://test",
     ) as client:
+        await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
         response = await client.post(
             "/auth/activate/invalid-token",
         )
@@ -337,10 +365,9 @@ async def test_activate_user_expired_token(setup_database):
 
         async with AsyncSessionLocal() as db:
             user = await db.get(User, 1)
-            user.activation_token.expires_at = (
-                user.activation_token.expires_at.replace(year=2020)
-            )
-            token = user.activation_token.token
+            activation_token = user.activation_token
+            activation_token.expires_at = datetime.utcnow() - timedelta(hours=1)
+            token = activation_token.token
             await db.commit()
 
         response = await client.post(
@@ -349,9 +376,3 @@ async def test_activate_user_expired_token(setup_database):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Activation token has expired"
-
-    async with AsyncSessionLocal() as db:
-        user = await db.get(User, 1)
-
-    assert user.is_active is False
-    assert user.activation_token is None

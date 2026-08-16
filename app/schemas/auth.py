@@ -21,3 +21,6 @@ class LoginResponse(BaseModel):
     id: int
     email: EmailStr
     is_active: bool
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"

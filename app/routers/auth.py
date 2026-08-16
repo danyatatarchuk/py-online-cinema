@@ -2,6 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+)
 from app.database import get_db
 from app.models.user_group import UserGroup
 from app.schemas.auth import (
@@ -69,7 +73,7 @@ async def register(
     response_model=LoginResponse,
     status_code=status.HTTP_200_OK,
     summary="Login user",
-    description="Authenticates a user by email and password.",
+    description="Authenticates a user and returns access and refresh JWT tokens.",
 )
 async def login(
     data: LoginRequest,
@@ -93,10 +97,15 @@ async def login(
             detail="User account is inactive",
         )
 
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
+
     return LoginResponse(
         id=user.id,
         email=user.email,
         is_active=user.is_active,
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
 
 
