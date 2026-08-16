@@ -5,12 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import (
     create_access_token,
     create_refresh_token,
+    decode_token,
 )
 from app.database import get_db
 from app.models.user_group import UserGroup
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
     RegisterRequest,
     RegisterResponse,
 )
@@ -133,3 +136,42 @@ async def activate(
         "message": "User account activated successfully",
         "user_id": user.id,
     }
+
+
+@router.post(
+    "/refresh",
+    response_model=RefreshTokenResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Refresh access token",
+    description="Creates a new access token using a valid refresh token.",
+)
+async def refresh_token(
+    data: RefreshTokenRequest,
+):
+    try:
+        payload = decode_token(data.refresh_token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+    if payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    user_id = payload.get("sub")
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    access_token = create_access_token(int(user_id))
+
+    return RefreshTokenResponse(
+        access_token=access_token,
+    )

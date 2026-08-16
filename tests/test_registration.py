@@ -5,7 +5,12 @@ import pytest
 import pytest_asyncio
 from jose import jwt
 
-from app.core.security import ALGORITHM, SECRET_KEY
+from app.core.security import (
+    ALGORITHM,
+    SECRET_KEY,
+    create_access_token,
+    create_refresh_token,
+)
 from app.database import Base, AsyncSessionLocal, engine
 from app.main import app
 from app.models.user import User
@@ -376,3 +381,119 @@ async def test_activate_user_expired_token(setup_database):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Activation token has expired"
+
+
+@pytest.mark.asyncio
+async def test_refresh_access_token(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, 1)
+            user.is_active = True
+            await db.commit()
+
+        login_response = await client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        refresh_token = login_response.json()["refresh_token"]
+
+        response = await client.post(
+            "/auth/refresh",
+            json={
+                "refresh_token": refresh_token,
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["access_token"]
+    assert data["token_type"] == "bearer"
+
+    payload = jwt.decode(
+        data["access_token"],
+        SECRET_KEY,
+        algorithms=[ALGORITHM],
+    )
+
+    assert payload["sub"] == "1"
+    assert payload["type"] == "access"
+
+
+@pytest.mark.asyncio
+async def test_refresh_with_access_token(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        await client.post(
+            "/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        async with AsyncSessionLocal() as db:
+            user = await db.get(User, 1)
+            user.is_active = True
+            await db.commit()
+
+        login_response = await client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "password123",
+            },
+        )
+
+        access_token = login_response.json()["access_token"]
+
+        response = await client.post(
+            "/auth/refresh",
+            json={
+                "refresh_token": access_token,
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid token type"
+
+
+@pytest.mark.asyncio
+async def test_refresh_with_invalid_token(setup_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/auth/refresh",
+            json={
+                "refresh_token": "invalid-token",
+            },
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid or expired token"
