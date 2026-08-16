@@ -1,3 +1,4 @@
+from app.models.activation_token import ActivationToken
 from app.models.certification import Certification
 from app.models.director import Director
 from app.models.genre import Genre
