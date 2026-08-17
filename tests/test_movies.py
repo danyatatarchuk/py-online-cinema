@@ -5,7 +5,9 @@ from httpx import ASGITransport, AsyncClient
 from app.database import Base, AsyncSessionLocal, engine
 from app.main import app
 from app.models.certification import Certification
-from app.models.movie import Movie
+from app.models.director import Director
+from app.models.movie import Movie, movie_directors, movie_stars
+from app.models.star import Star
 
 
 @pytest_asyncio.fixture
@@ -60,6 +62,51 @@ async def setup_movies_database():
         ]
 
         db.add_all(movies)
+        await db.flush()
+
+        star_one = Star(name="Tom Hanks")
+        star_two = Star(name="Leonardo DiCaprio")
+
+        director_one = Director(name="Christopher Nolan")
+        director_two = Director(name="Steven Spielberg")
+
+        db.add_all([
+            star_one,
+            star_two,
+            director_one,
+            director_two,
+        ])
+
+        await db.flush()
+
+        await db.execute(
+            movie_stars.insert(),
+            [
+                {
+                    "movie_id": movies[0].id,
+                    "star_id": star_one.id,
+                },
+                {
+                    "movie_id": movies[1].id,
+                    "star_id": star_two.id,
+                },
+            ],
+        )
+
+        await db.execute(
+            movie_directors.insert(),
+            [
+                {
+                    "movie_id": movies[0].id,
+                    "director_id": director_one.id,
+                },
+                {
+                    "movie_id": movies[1].id,
+                    "director_id": director_two.id,
+                },
+            ],
+        )
+
         await db.commit()
 
     yield
@@ -309,3 +356,66 @@ async def test_sort_movies_by_price_asc(setup_movies_database):
         "Movie One",
         "Movie Three",
     ]
+
+
+@pytest.mark.asyncio
+async def test_search_movies_by_name(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={"search": "Movie One"},
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["name"] == "Movie One"
+
+
+@pytest.mark.asyncio
+async def test_search_movies_by_star(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={"star": "Tom Hanks"},
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["name"] == "Movie One"
+
+
+@pytest.mark.asyncio
+async def test_search_movies_by_director(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={"director": "Christopher Nolan"},
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["name"] == "Movie One"
