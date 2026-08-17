@@ -66,3 +66,19 @@ async def create_order(
     )
 
     return result.scalar_one()
+
+
+async def get_user_orders(
+    user_id: int,
+    db: AsyncSession,
+) -> list[Order]:
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.movie)
+        )
+        .where(Order.user_id == user_id)
+        .order_by(Order.created_at.desc())
+    )
+
+    return list(result.scalars().unique().all())
