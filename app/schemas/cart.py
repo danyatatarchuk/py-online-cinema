@@ -8,3 +8,7 @@ class CartItemResponse(BaseModel):
     movie_id: int
     movie_name: str
     price: Decimal
+
+
+class CartResponse(BaseModel):
+    items: list[CartItemResponse]

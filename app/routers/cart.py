@@ -4,10 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
-from app.schemas.cart import CartItemResponse
+from app.schemas.cart import CartItemResponse, CartResponse
 from app.services.cart import (
     add_movie_to_cart,
     remove_movie_from_cart,
+    get_cart,
 )
 
 
@@ -71,3 +72,37 @@ async def remove_from_cart(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+
+@router.get(
+    "",
+    response_model=CartResponse,
+    summary="View cart",
+    description="Returns the current user's shopping cart.",
+)
+async def view_cart(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        cart = await get_cart(
+            user_id=current_user.id,
+            db=db,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    return CartResponse(
+        items=[
+            CartItemResponse(
+                id=item.id,
+                movie_id=item.movie_id,
+                movie_name=item.movie.name,
+                price=item.movie.price,
+            )
+            for item in cart.items
+        ]
+    )

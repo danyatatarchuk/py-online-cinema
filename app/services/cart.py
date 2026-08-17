@@ -84,3 +84,23 @@ async def remove_movie_from_cart(
 
     await db.delete(cart_item)
     await db.commit()
+
+
+async def get_cart(
+    user_id: int,
+    db: AsyncSession,
+) -> Cart:
+    result = await db.execute(
+        select(Cart)
+        .options(
+            selectinload(Cart.items).selectinload(CartItem.movie)
+        )
+        .where(Cart.user_id == user_id)
+    )
+
+    cart = result.scalar_one_or_none()
+
+    if cart is None:
+        raise ValueError("Cart not found")
+
+    return cart
