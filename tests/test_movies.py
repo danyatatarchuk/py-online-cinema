@@ -158,3 +158,154 @@ async def test_get_movies_empty_page(setup_movies_database):
     data = response.json()
 
     assert data == []
+
+
+@pytest.mark.asyncio
+async def test_filter_movies_by_year(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={"year": 2021},
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["name"] == "Movie Two"
+
+
+@pytest.mark.asyncio
+async def test_filter_movies_by_rating(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={
+                "min_rating": 8,
+                "max_rating": 9,
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 2
+    assert data[0]["name"] == "Movie One"
+    assert data[1]["name"] == "Movie Three"
+
+
+@pytest.mark.asyncio
+async def test_filter_movies_by_price(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={
+                "min_price": 8,
+                "max_price": 10,
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["name"] == "Movie One"
+
+
+@pytest.mark.asyncio
+async def test_sort_movies_by_year_desc(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={
+                "sort_by": "year",
+                "order": "desc",
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert [movie["name"] for movie in data] == [
+        "Movie Three",
+        "Movie Two",
+        "Movie One",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sort_movies_by_rating_desc(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={
+                "sort_by": "imdb",
+                "order": "desc",
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert [movie["name"] for movie in data] == [
+        "Movie Three",
+        "Movie One",
+        "Movie Two",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sort_movies_by_price_asc(setup_movies_database):
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/movies",
+            params={
+                "sort_by": "price",
+                "order": "asc",
+            },
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert [movie["name"] for movie in data] == [
+        "Movie Two",
+        "Movie One",
+        "Movie Three",
+    ]
