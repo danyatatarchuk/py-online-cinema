@@ -6,3 +6,5 @@ from app.models.movie import Movie
 from app.models.star import Star
 from app.models.user import User
 from app.models.user_group import UserGroup
+from app.models.cart import Cart
+from app.models.cart_item import CartItem
