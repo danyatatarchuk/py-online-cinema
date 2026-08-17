@@ -5,7 +5,11 @@ from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.models.user import User
 from app.schemas.order import OrderResponse, OrderItemResponse
-from app.services.order import create_order, get_user_orders
+from app.services.order import (
+    create_order,
+    get_order_by_id,
+    get_user_orders,
+)
 
 
 router = APIRouter(
@@ -86,3 +90,43 @@ async def get_orders(
         )
         for order in orders
     ]
+
+
+@router.get(
+    "/{order_id}",
+    response_model=OrderResponse,
+    summary="Get order details",
+    description="Returns details of a specific order belonging to the current user.",
+)
+async def get_order_details(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    order = await get_order_by_id(
+        user_id=current_user.id,
+        order_id=order_id,
+        db=db,
+    )
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    return OrderResponse(
+        id=order.id,
+        created_at=order.created_at,
+        status=order.status,
+        total_amount=order.total_amount,
+        items=[
+            OrderItemResponse(
+                id=item.id,
+                movie_id=item.movie_id,
+                movie_name=item.movie.name,
+                price_at_order=item.price_at_order,
+            )
+            for item in order.items
+        ],
+    )

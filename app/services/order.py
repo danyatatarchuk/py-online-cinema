@@ -82,3 +82,22 @@ async def get_user_orders(
     )
 
     return list(result.scalars().unique().all())
+
+
+async def get_order_by_id(
+    user_id: int,
+    order_id: int,
+    db: AsyncSession,
+) -> Order | None:
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.movie)
+        )
+        .where(
+            Order.id == order_id,
+            Order.user_id == user_id,
+        )
+    )
+
+    return result.scalar_one_or_none()
