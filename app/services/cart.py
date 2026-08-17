@@ -56,3 +56,31 @@ async def add_movie_to_cart(
     )
 
     return result.scalar_one()
+
+
+async def remove_movie_from_cart(
+    user_id: int,
+    movie_id: int,
+    db: AsyncSession,
+) -> None:
+    result = await db.execute(
+        select(Cart).where(Cart.user_id == user_id)
+    )
+    cart = result.scalar_one_or_none()
+
+    if cart is None:
+        raise ValueError("Cart not found")
+
+    result = await db.execute(
+        select(CartItem).where(
+            CartItem.cart_id == cart.id,
+            CartItem.movie_id == movie_id,
+        )
+    )
+    cart_item = result.scalar_one_or_none()
+
+    if cart_item is None:
+        raise ValueError("Movie is not in cart")
+
+    await db.delete(cart_item)
+    await db.commit()
